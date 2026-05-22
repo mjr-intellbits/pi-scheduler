@@ -54,7 +54,7 @@ type ServerMessage =
   | { type: "event"; event: any }
   | { type: "error"; message: string };
 
-const CLIENT_ID_KEY = "pi-web-client-id";
+const USER_NAME_KEY = "pi-web-user-name";
 
 const employees: Employee[] = [
   { id: "emp_ana", name: "Ana Rivera", role: "Manager", skills: ["closing", "cash"], availability: ["Mon", "Tue", "Wed", "Thu", "Fri"], attendanceRisk: "low" },
@@ -89,12 +89,12 @@ const days = [
   { date: "2026-06-07", label: "Sun 7" },
 ];
 
-function getClientId() {
-  const existing = localStorage.getItem(CLIENT_ID_KEY);
-  if (existing) return existing;
-  const id = crypto.randomUUID();
-  localStorage.setItem(CLIENT_ID_KEY, id);
-  return id;
+function getStoredUserName() {
+  return localStorage.getItem(USER_NAME_KEY) ?? "";
+}
+
+function normalizeUserName(name: string) {
+  return name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_").replace(/_+/g, "_").slice(0, 80);
 }
 
 function employeeName(id?: string) {
@@ -152,8 +152,10 @@ function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], select
 }
 
 function App() {
+  const [userName, setUserName] = useState(getStoredUserName);
+  const [loginName, setLoginName] = useState(getStoredUserName);
   const [connected, setConnected] = useState(false);
-  const [status, setStatus] = useState("Connecting…");
+  const [status, setStatus] = useState(userName ? "Connecting…" : "Enter your name to continue");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -166,12 +168,14 @@ function App() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const wsUrl = useMemo(() => {
+    if (!userName) return undefined;
     const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    const clientId = encodeURIComponent(getClientId());
+    const clientId = encodeURIComponent(normalizeUserName(userName));
     return `${protocol}//${location.host}/api/agent?clientId=${clientId}`;
-  }, []);
+  }, [userName]);
 
   useEffect(() => {
+    if (!wsUrl) return;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -191,6 +195,26 @@ function App() {
 
     return () => ws.close();
   }, [wsUrl]);
+
+  function login(event: React.FormEvent) {
+    event.preventDefault();
+    const normalized = normalizeUserName(loginName);
+    if (!normalized) return;
+    localStorage.setItem(USER_NAME_KEY, normalized);
+    setUserName(normalized);
+    setStatus("Connecting…");
+  }
+
+  function logout() {
+    wsRef.current?.close();
+    localStorage.removeItem(USER_NAME_KEY);
+    setUserName("");
+    setLoginName("");
+    setConnected(false);
+    setMessages([]);
+    setAgentInfo(null);
+    setStatus("Enter your name to continue");
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -350,13 +374,32 @@ function App() {
   const openCount = shifts.filter((shift) => !shift.employeeId || shift.status === "open").length;
   const warningCount = shifts.filter((shift) => shift.status === "warning" || shift.note).length;
 
+  if (!userName) {
+    return (
+      <main className="login-screen">
+        <form className="login-card" onSubmit={login}>
+          <h1>Schedule Assistant Demo</h1>
+          <p>Enter your name to reconnect to your saved chat session.</p>
+          <input
+            value={loginName}
+            onChange={(event) => setLoginName(event.target.value)}
+            placeholder="e.g. josh"
+            autoFocus
+          />
+          <button disabled={!normalizeUserName(loginName)}>Continue</button>
+          <small>Demo login only: your name is used as the local session key.</small>
+        </form>
+      </main>
+    );
+  }
+
   return (
     <main className="scheduler-app">
       <section className="schedule-pane">
         <header className="schedule-header">
           <div>
             <h1>Schedule Proposal</h1>
-            <p>Demo location · Week of Jun 1, 2026 · {shifts.length} shifts · {openCount} open · {warningCount} warnings</p>
+            <p>Demo location · Week of Jun 1, 2026 · {shifts.length} shifts · {openCount} open · {warningCount} warnings · signed in as {userName}</p>
           </div>
           <div className="quick-actions">
             <button onClick={() => sendPrompt("Analyze this schedule and tell me the biggest optimization opportunities. Do not apply changes yet.")} disabled={!connected}>Analyze</button>
@@ -458,7 +501,10 @@ function App() {
             <p>{status}</p>
             {agentInfo && <small>{agentInfo.tools?.join(", ")}</small>}
           </div>
-          <button onClick={abort} disabled={!connected}>Abort</button>
+          <div className="assistant-actions">
+            <button onClick={abort} disabled={!connected}>Abort</button>
+            <button className="secondary" onClick={logout}>Switch user</button>
+          </div>
         </header>
 
         <section className="messages">

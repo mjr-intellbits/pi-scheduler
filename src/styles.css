@@ -115,6 +115,44 @@ button.secondary {
   border-color: #58a6ff99;
 }
 
+.day-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.day-title span {
+  color: #f0b72f;
+  font-size: 11px;
+}
+
+.coverage-lanes {
+  display: grid;
+  gap: 4px;
+  margin: 2px 0 4px;
+}
+
+.coverage-lane {
+  border: 1px dashed #30363d;
+  border-radius: 7px;
+  padding: 4px 6px;
+  color: #8b949e;
+  font-size: 11px;
+}
+
+.coverage-lane.covered {
+  color: #7ee787;
+  border-color: #23863688;
+  background: #23863618;
+}
+
+.coverage-lane.missing {
+  color: #f0b72f;
+  border-color: #d2992288;
+  background: #d2992218;
+}
+
 .shift-chip {
   display: block;
   border-radius: 9px;
@@ -128,7 +166,7 @@ button.secondary {
 .shift-chip.open, .shift-row.open { border-color: #d29922aa; background: #d2992222; }
 .shift-chip.warning, .shift-row.warning { border-color: #f85149aa; background: #f8514922; }
 .shift-chip::after {
-  content: "Drop employee";
+  content: "Drop employee · drag shift";
   display: block;
   margin-top: 4px;
   color: #8b949e;

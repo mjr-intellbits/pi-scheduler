@@ -117,6 +117,30 @@ function assignmentWarning(employee: Employee, shift: Shift) {
   return undefined;
 }
 
+function isBusyDay(date: string) {
+  return date === "2026-06-06";
+}
+
+function requiredRolesForDate(date: string) {
+  return ["Manager", "Cook", "Host", "Server", ...(isBusyDay(date) ? ["Server"] : [])];
+}
+
+function roleStartEnd(role: string) {
+  if (role === "Manager") return { start: "08:00", end: "16:00" };
+  if (role === "Cook") return { start: "10:00", end: "18:00" };
+  if (role === "Host") return { start: "09:00", end: "15:00" };
+  return { start: "16:00", end: "22:00" };
+}
+
+function coverageForDate(shifts: Shift[], date: string) {
+  const dayShifts = shifts.filter((shift) => shift.date === date);
+  return requiredRolesForDate(date).map((role, index) => {
+    const matching = dayShifts.filter((shift) => shift.role === role);
+    const shift = matching[index] ?? matching.find((item) => !item.employeeId) ?? matching[0];
+    return { key: `${role}-${index}`, role, shift, covered: Boolean(shift?.employeeId) };
+  });
+}
+
 function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], selectedDate: string) {
   const openShifts = shifts.filter((shift) => !shift.employeeId || shift.status === "open");
   const warnings = shifts.filter((shift) => shift.status === "warning" || shift.note);
@@ -135,7 +159,13 @@ function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], select
         { date: "2026-06-06", demand: "high", note: "Saturday dinner spike" },
         { date: "2026-06-07", demand: "medium" },
       ],
-      laborRules: ["Managers required for opening/closing", "Cook shifts need grill or prep skill", "Prefer low attendance-risk employees for critical weekend shifts"],
+      staffingRules: days.map((day) => ({
+        date: day.date,
+        requiredRoles: requiredRolesForDate(day.date),
+        isBusyDay: isBusyDay(day.date),
+        coverage: coverageForDate(shifts, day.date),
+      })),
+      laborRules: ["Every day needs at least one Manager, Cook, Host, and Server", "Busy days need two Servers", "Managers required for opening/closing", "Cook shifts need grill or prep skill", "Prefer low attendance-risk employees for critical weekend shifts"],
       openShiftCount: openShifts.length,
       warningCount: warnings.length,
     },
@@ -349,6 +379,21 @@ function App() {
     event.dataTransfer.setData("text/plain", employee.name);
   }
 
+  function startDraggingShift(event: React.DragEvent, shift: Shift) {
+    event.stopPropagation();
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-shift-id", shift.id);
+    event.dataTransfer.setData("text/plain", `${shift.role} ${employeeName(shift.employeeId)}`);
+  }
+
+  function moveShiftToDate(shiftId: string, date: string) {
+    const shift = shifts.find((item) => item.id === shiftId);
+    if (!shift || shift.date === date) return;
+    setShifts((current) => current.map((item) => item.id === shiftId ? { ...item, date } : item));
+    setSelectedDate(date);
+    setActivity((current) => [`Manual drag/drop: moved ${shift.role} (${employeeName(shift.employeeId)}) from ${dayName(shift.date)} to ${dayName(date)}`, ...current].slice(0, 6));
+  }
+
   function assignEmployeeToShift(shiftId: string, employeeId: string, source = "Manual drag/drop") {
     const employee = employees.find((item) => item.id === employeeId);
     const shift = shifts.find((item) => item.id === shiftId);
@@ -361,6 +406,45 @@ function App() {
       note: warning,
     } : item));
     setActivity((current) => [`${source}: assigned ${employee.name} to ${shift.role} on ${dayName(shift.date)} ${shift.start}–${shift.end}${warning ? ` (${warning})` : ""}`, ...current].slice(0, 6));
+  }
+
+  function assignEmployeeToDate(date: string, employeeId: string) {
+    const employee = employees.find((item) => item.id === employeeId);
+    if (!employee) return;
+    const required = requiredRolesForDate(date);
+    const role = required.includes(employee.role) ? employee.role : employee.role;
+    const dayShifts = shifts.filter((shift) => shift.date === date && shift.role === role);
+    const openShift = dayShifts.find((shift) => !shift.employeeId);
+    if (openShift) {
+      assignEmployeeToShift(openShift.id, employeeId);
+      return;
+    }
+    const existingFilled = dayShifts.filter((shift) => shift.employeeId).length;
+    const requiredCount = required.filter((item) => item === role).length;
+    const { start, end } = roleStartEnd(role);
+    const newShift: Shift = {
+      id: `s_${crypto.randomUUID().slice(0, 8)}`,
+      date,
+      start,
+      end,
+      role,
+      employeeId,
+      status: existingFilled >= requiredCount ? "warning" : "assigned",
+      note: existingFilled >= requiredCount ? `Extra ${role} added beyond base staffing requirement` : undefined,
+    };
+    const warning = assignmentWarning(employee, newShift);
+    const finalShift = { ...newShift, status: warning ? "warning" as const : newShift.status, note: warning ?? newShift.note };
+    setShifts((current) => [...current, finalShift]);
+    setSelectedDate(date);
+    setActivity((current) => [`Manual drag/drop: added ${employee.name} as ${role} on ${dayName(date)}${finalShift.note ? ` (${finalShift.note})` : ""}`, ...current].slice(0, 6));
+  }
+
+  function dropOnDay(event: React.DragEvent, date: string) {
+    event.preventDefault();
+    const shiftId = event.dataTransfer.getData("application/x-shift-id");
+    const employeeId = event.dataTransfer.getData("application/x-employee-id");
+    if (shiftId) moveShiftToDate(shiftId, date);
+    else if (employeeId) assignEmployeeToDate(date, employeeId);
   }
 
   function dropEmployeeOnShift(event: React.DragEvent, shiftId: string) {
@@ -411,15 +495,33 @@ function App() {
           {days.map((day) => {
             const dayShifts = shifts.filter((shift) => shift.date === day.date).sort((a, b) => a.start.localeCompare(b.start));
             return (
-              <div key={day.date} className={`day-card ${selectedDate === day.date ? "selected" : ""}`} onClick={() => setSelectedDate(day.date)}>
-                <strong>{day.label}</strong>
+              <div
+                key={day.date}
+                className={`day-card ${selectedDate === day.date ? "selected" : ""}`}
+                onClick={() => setSelectedDate(day.date)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => dropOnDay(event, day.date)}
+              >
+                <div className="day-title">
+                  <strong>{day.label}</strong>
+                  {isBusyDay(day.date) && <span>Busy · 2 servers</span>}
+                </div>
+                <div className="coverage-lanes">
+                  {coverageForDate(shifts, day.date).map((coverage) => (
+                    <div key={coverage.key} className={`coverage-lane ${coverage.covered ? "covered" : "missing"}`}>
+                      {coverage.role}: {coverage.covered ? employeeName(coverage.shift?.employeeId) : "needed"}
+                    </div>
+                  ))}
+                </div>
                 {dayShifts.map((shift) => (
                   <div
                     key={shift.id}
                     className={`shift-chip ${shift.status}`}
+                    draggable
+                    onDragStart={(event) => startDraggingShift(event, shift)}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => dropEmployeeOnShift(event, shift.id)}
-                    title="Drop an employee here to assign them"
+                    title="Drag this shift to another day, or drop an employee here"
                   >
                     {shift.start} {shift.role} · {employeeName(shift.employeeId)}
                   </div>
@@ -439,6 +541,8 @@ function App() {
                   className={`shift-row ${shift.status}`}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => dropEmployeeOnShift(event, shift.id)}
+                  draggable
+                  onDragStart={(event) => startDraggingShift(event, shift)}
                 >
                   <div>
                     <strong>{shift.start}–{shift.end}</strong>

@@ -64,7 +64,7 @@ type ServerMessage =
 
 const USER_NAME_KEY = "pi-web-user-name";
 
-const employees: Employee[] = [
+const initialEmployees: Employee[] = [
   { id: "emp_ana", name: "Ana Rivera", role: "Manager", skills: ["closing", "cash"], availability: ["Mon", "Tue", "Wed", "Thu", "Fri"], attendanceRisk: "low" },
   { id: "emp_ben", name: "Ben Carter", role: "Cook", skills: ["grill", "prep"], availability: ["Mon", "Wed", "Fri", "Sat"], attendanceRisk: "medium" },
   { id: "emp_chen", name: "Chen Wu", role: "Server", skills: ["bar", "floor"], availability: ["Tue", "Wed", "Thu", "Sat", "Sun"], attendanceRisk: "low" },
@@ -138,7 +138,7 @@ function normalizeUserName(name: string) {
   return name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_").replace(/_+/g, "_").slice(0, 80);
 }
 
-function employeeName(id?: string) {
+function employeeName(id: string | undefined, employees: Employee[] = initialEmployees) {
   return employees.find((employee) => employee.id === id)?.name ?? "Open";
 }
 
@@ -191,7 +191,7 @@ function coverageForDate(shifts: Shift[], date: string) {
   );
 }
 
-function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], selectedDate: string, employeeRoleFilter = "All") {
+function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], selectedDate: string, employeeRoleFilter = "All", employees: Employee[] = initialEmployees) {
   const openShifts = shifts.filter((shift) => !shift.employeeId || shift.status === "open");
   const warnings = shifts.filter((shift) => shift.status === "warning" || shift.note);
   return {
@@ -241,6 +241,9 @@ function App() {
   const [input, setInput] = useState("");
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
+  const [activePage, setActivePage] = useState<"schedule" | "employees" | "reports">("schedule");
+  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+  const [newEmployee, setNewEmployee] = useState({ name: "", role: "Server", skills: "floor", availability: "Mon,Tue,Wed,Thu,Fri", attendanceRisk: "low" as Employee["attendanceRisk"] });
   const [shifts, setShifts] = useState<Shift[]>(initialShifts);
   const [selectedDate, setSelectedDate] = useState(days[0].date);
   const [employeeRoleFilter, setEmployeeRoleFilter] = useState("All");
@@ -265,7 +268,7 @@ function App() {
 
     ws.onopen = () => {
       setStatus("Starting pi session…");
-      ws.send(JSON.stringify({ type: "context", context: buildSchedulingContext(messages, shifts, selectedDate, employeeRoleFilter) }));
+      ws.send(JSON.stringify({ type: "context", context: buildSchedulingContext(messages, shifts, selectedDate, employeeRoleFilter, employees) }));
     };
     ws.onclose = () => {
       setConnected(false);
@@ -306,9 +309,9 @@ function App() {
 
   useEffect(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "context", context: buildSchedulingContext(messages, shifts, selectedDate, employeeRoleFilter) }));
+      wsRef.current.send(JSON.stringify({ type: "context", context: buildSchedulingContext(messages, shifts, selectedDate, employeeRoleFilter, employees) }));
     }
-  }, [messages, shifts, selectedDate, employeeRoleFilter]);
+  }, [messages, shifts, selectedDate, employeeRoleFilter, employees]);
 
   function appendMessage(message: ChatMessage) {
     setMessages((current) => [...current, message]);
@@ -454,11 +457,15 @@ function App() {
     event.dataTransfer.setData("text/plain", employee.name);
   }
 
+  function getEmployeeName(id?: string) {
+    return employeeName(id, employees);
+  }
+
   function startDraggingShift(event: React.DragEvent, shift: Shift) {
     event.stopPropagation();
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("application/x-shift-id", shift.id);
-    event.dataTransfer.setData("text/plain", `${shift.role} ${employeeName(shift.employeeId)}`);
+    event.dataTransfer.setData("text/plain", `${shift.role} ${getEmployeeName(shift.employeeId)}`);
   }
 
   function moveShiftToDate(shiftId: string, date: string) {
@@ -466,7 +473,7 @@ function App() {
     if (!shift || shift.date === date) return;
     setShifts((current) => current.map((item) => item.id === shiftId ? { ...item, date } : item));
     setSelectedDate(date);
-    setActivity((current) => [`Manual drag/drop: moved ${shift.role} (${employeeName(shift.employeeId)}) from ${dayName(shift.date)} to ${dayName(date)}`, ...current].slice(0, 6));
+    setActivity((current) => [`Manual drag/drop: moved ${shift.role} (${getEmployeeName(shift.employeeId)}) from ${dayName(shift.date)} to ${dayName(date)}`, ...current].slice(0, 6));
   }
 
   function assignEmployeeToShift(shiftId: string, employeeId: string, source = "Manual drag/drop") {
@@ -554,7 +561,8 @@ function App() {
 
   const selectedShifts = shifts.filter((shift) => shift.date === selectedDate).sort((a, b) => `${a.period}-${a.start}-${a.role}`.localeCompare(`${b.period}-${b.start}-${b.role}`));
   const contextShift = contextMenu ? shifts.find((shift) => shift.id === contextMenu.shiftId) : undefined;
-  const employeeRoles = ["All", ...Array.from(new Set(employees.map((employee) => employee.role))).sort()];
+  const baseRoles = ["Manager", "Cook", "Host", "Server"];
+  const employeeRoles = ["All", ...Array.from(new Set([...baseRoles, ...employees.map((employee) => employee.role)])).sort()];
   const filteredEmployees = employeeRoleFilter === "All" ? employees : employees.filter((employee) => employee.role === employeeRoleFilter);
   const openCount = shifts.filter((shift) => !shift.employeeId || shift.status === "open").length;
   const warningCount = shifts.filter((shift) => shift.status === "warning" || shift.note).length;
@@ -589,9 +597,9 @@ function App() {
             </div>
           </div>
           <nav className="nav-links" aria-label="Schedule views">
-            <button className="active">Schedule</button>
-            <button>Employees</button>
-            <button>Reports</button>
+            <button className={activePage === "schedule" ? "active" : ""} onClick={() => setActivePage("schedule")}>Schedule</button>
+            <button className={activePage === "employees" ? "active" : ""} onClick={() => setActivePage("employees")}>Employees</button>
+            <button className={activePage === "reports" ? "active" : ""} onClick={() => setActivePage("reports")}>Reports</button>
           </nav>
           <div className="nav-stats">
             <span>{shifts.length} shifts</span>
@@ -614,6 +622,7 @@ function App() {
 
       <div className="scheduler-app">
         <section className="schedule-pane">
+          {activePage === "schedule" && (<>
           <div className="calendar-grid">
           {days.map((day) => {
             const dayShifts = shifts.filter((shift) => shift.date === day.date).sort((a, b) => a.start.localeCompare(b.start));
@@ -646,7 +655,7 @@ function App() {
                         title="Drag this shift to another day, drop an employee, or right-click assigned people"
                       >
                         <b>{shift.start} · {shift.role}</b>
-                        <small>{employeeName(shift.employeeId)}</small>
+                        <small>{getEmployeeName(shift.employeeId)}</small>
                       </div>
                     ))}
                   </div>
@@ -730,6 +739,78 @@ function App() {
             </div>
           </section>
         </div>
+        </>)}
+
+        {activePage === "employees" && (
+          <section className="employees-page panel">
+            <div className="panel-heading">
+              <div>
+                <h2>Employees</h2>
+                <p>Add, remove, and reclassify employees. Drag cards from here onto schedule slots.</p>
+              </div>
+              <select value={employeeRoleFilter} onChange={(event) => setEmployeeRoleFilter(event.target.value)}>
+                {employeeRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+              </select>
+            </div>
+
+            <form className="employee-form" onSubmit={(event) => {
+              event.preventDefault();
+              const name = newEmployee.name.trim();
+              if (!name) return;
+              const employee: Employee = {
+                id: `emp_${crypto.randomUUID().slice(0, 8)}`,
+                name,
+                role: newEmployee.role,
+                skills: newEmployee.skills.split(",").map((item) => item.trim()).filter(Boolean),
+                availability: newEmployee.availability.split(",").map((item) => item.trim()).filter(Boolean),
+                attendanceRisk: newEmployee.attendanceRisk,
+              };
+              setEmployees((current) => [...current, employee]);
+              setNewEmployee({ name: "", role: "Server", skills: "floor", availability: "Mon,Tue,Wed,Thu,Fri", attendanceRisk: "low" });
+              setActivity((current) => [`Added employee: ${employee.name} (${employee.role})`, ...current].slice(0, 6));
+            }}>
+              <input value={newEmployee.name} onChange={(event) => setNewEmployee((current) => ({ ...current, name: event.target.value }))} placeholder="Employee name" />
+              <select value={newEmployee.role} onChange={(event) => setNewEmployee((current) => ({ ...current, role: event.target.value }))}>
+                {baseRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+              </select>
+              <input value={newEmployee.skills} onChange={(event) => setNewEmployee((current) => ({ ...current, skills: event.target.value }))} placeholder="skills, comma-separated" />
+              <input value={newEmployee.availability} onChange={(event) => setNewEmployee((current) => ({ ...current, availability: event.target.value }))} placeholder="Mon,Tue,Wed" />
+              <select value={newEmployee.attendanceRisk} onChange={(event) => setNewEmployee((current) => ({ ...current, attendanceRisk: event.target.value as Employee["attendanceRisk"] }))}>
+                <option value="low">Low risk</option>
+                <option value="medium">Medium risk</option>
+                <option value="high">High risk</option>
+              </select>
+              <button>Add employee</button>
+            </form>
+
+            <div className="employee-admin-grid">
+              {filteredEmployees.map((employee) => (
+                <article key={employee.id} className={`employee-card employee-admin-card ${roleClass(employee.role)}`} draggable onDragStart={(event) => startDraggingEmployee(event, employee)}>
+                  <strong>{employee.name}</strong>
+                  <div className="employee-admin-controls">
+                    <select value={employee.role} onChange={(event) => {
+                      const role = event.target.value;
+                      setEmployees((current) => current.map((item) => item.id === employee.id ? { ...item, role } : item));
+                      setActivity((current) => [`Reclassified ${employee.name} as ${role}`, ...current].slice(0, 6));
+                    }}>
+                      {baseRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+                    </select>
+                    <button className="secondary small" onClick={() => {
+                      setEmployees((current) => current.filter((item) => item.id !== employee.id));
+                      setShifts((current) => current.map((shift) => shift.employeeId === employee.id ? { ...shift, employeeId: undefined, status: "open", note: undefined } : shift));
+                    }}>Remove</button>
+                  </div>
+                  <span>{employee.skills.join(", ")}</span>
+                  <small>Available: {employee.availability.join(", ")} · Risk: {employee.attendanceRisk}</small>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activePage === "reports" && (
+          <section className="panel"><h2>Reports</h2><p>Reports view placeholder. Ask the assistant to analyze coverage, risk, or open shifts.</p></section>
+        )}
 
         {activity.length > 0 && (
           <section className="activity panel">
@@ -764,12 +845,12 @@ function App() {
 
         {contextMenu && contextShift && (
           <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={(event) => event.stopPropagation()}>
-            <strong>{employeeName(contextShift.employeeId)}</strong>
+            <strong>{getEmployeeName(contextShift.employeeId)}</strong>
             <span>{contextShift.period} {contextShift.role} · {dayName(contextShift.date)}</span>
             <button onClick={() => { unassignShift(contextShift.id, "Context menu"); closeContextMenu(); }}>Remove from shift</button>
             <button onClick={() => { setEmployeeRoleFilter(contextShift.role); closeContextMenu(); }}>Show {contextShift.role}s</button>
             <button onClick={() => {
-              sendPrompt(`Find a better replacement for ${employeeName(contextShift.employeeId)} on ${dayName(contextShift.date)} ${contextShift.period} ${contextShift.role}. Do not apply changes yet.`);
+              sendPrompt(`Find a better replacement for ${getEmployeeName(contextShift.employeeId)} on ${dayName(contextShift.date)} ${contextShift.period} ${contextShift.role}. Do not apply changes yet.`);
               closeContextMenu();
             }}>Ask assistant for replacement</button>
           </div>

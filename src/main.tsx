@@ -404,7 +404,7 @@ function App() {
         if (event.assistantMessageEvent?.type === "text_delta") appendAssistantDelta(event.assistantMessageEvent.delta);
         break;
       case "tool_execution_start":
-        appendMessage({ id: crypto.randomUUID(), role: "tool", text: `Running ${event.toolName}…` });
+        setStatus(event.toolName === "apply_scheduling_changes" ? "Updating schedule…" : "Checking schedule…");
         break;
       case "agent_end":
         assistantIdRef.current = null;

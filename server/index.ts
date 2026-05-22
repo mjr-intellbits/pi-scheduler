@@ -99,7 +99,7 @@ wss.on("connection", async (ws, req) => {
     const applySchedulingChanges = defineTool({
       name: "apply_scheduling_changes",
       label: "Apply Scheduling Changes",
-      description: "Apply visible changes to the scheduling UI. Use this for user-approved changes such as assigning/unassigning employees, adding/removing shifts, updating shift times/statuses, or focusing a date. Inspect current context first. Prefer explaining proposed changes before applying unless the user explicitly asks you to make the change.",
+      description: "Apply visible changes to the scheduling UI. Use this for user-approved changes such as assigning/unassigning employees, adding/removing shifts, updating shift times/statuses, or focusing a date. Inspect current context first. Prefer explaining proposed changes before applying unless the user explicitly asks you to make the change. After using this tool, respond to the user with a short natural-language summary using bullets when helpful. Do not show JSON or tool payloads.",
       parameters: Type.Object({
         summary: Type.String({ description: "Short human-readable summary of what will change." }),
         changes: Type.Array(Type.Object({

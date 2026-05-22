@@ -244,6 +244,7 @@ function App() {
   const [shifts, setShifts] = useState<Shift[]>(initialShifts);
   const [selectedDate, setSelectedDate] = useState(days[0].date);
   const [employeeRoleFilter, setEmployeeRoleFilter] = useState("All");
+  const [collapsedPeriods, setCollapsedPeriods] = useState<Shift["period"][]>([]);
   const [activity, setActivity] = useState<string[]>([]);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -428,6 +429,14 @@ function App() {
     wsRef.current?.send(JSON.stringify({ type: "abort" }));
   }
 
+  function isPeriodCollapsed(period: Shift["period"]) {
+    return collapsedPeriods.includes(period);
+  }
+
+  function togglePeriod(period: Shift["period"]) {
+    setCollapsedPeriods((current) => current.includes(period) ? current.filter((item) => item !== period) : [...current, period]);
+  }
+
   function openShiftMenu(event: React.MouseEvent, shift: Shift) {
     event.preventDefault();
     event.stopPropagation();
@@ -572,10 +581,18 @@ function App() {
   return (
     <main className="scheduler-app" onClick={closeContextMenu}>
       <section className="schedule-pane">
-        <header className="schedule-header">
-          <div>
-            <h1>Schedule Proposal</h1>
-            <p>Demo location · Week of Jun 1, 2026 · {shifts.length} shifts · {openCount} open · {warningCount} warnings · signed in as {userName}</p>
+        <header className="schedule-nav">
+          <div className="brand-block">
+            <div className="brand-mark">π</div>
+            <div>
+              <h1>Schedule Proposal</h1>
+              <p>Demo location · Week of Jun 1, 2026 · signed in as {userName}</p>
+            </div>
+          </div>
+          <div className="nav-stats">
+            <span>{shifts.length} shifts</span>
+            <span>{openCount} open</span>
+            <span>{warningCount} warnings</span>
           </div>
           <div className="quick-actions">
             <button onClick={() => sendPrompt("Analyze this schedule and tell me the biggest optimization opportunities. Do not apply changes yet.")} disabled={!connected}>Analyze</button>
@@ -599,9 +616,11 @@ function App() {
                   {isBusyDay(day.date) && <span>Busy · 2 servers</span>}
                 </div>
                 {servicePeriodsForDate(day.date).map((period) => (
-                  <div key={period} className="period-lane">
-                    <div className="period-title">{period}</div>
-                    {dayShifts.filter((shift) => shift.period === period).map((shift) => (
+                  <div key={period} className={`period-lane ${isPeriodCollapsed(period) ? "collapsed" : ""}`}>
+                    <button className="period-title" onClick={(event) => { event.stopPropagation(); togglePeriod(period); }}>
+                      <span>{isPeriodCollapsed(period) ? "▸" : "▾"}</span> {period}
+                    </button>
+                    {!isPeriodCollapsed(period) && dayShifts.filter((shift) => shift.period === period).map((shift) => (
                       <div
                         key={shift.id}
                         className={`shift-chip ${shift.status} ${roleClass(shift.role)} ${shift.employeeId ? "filled" : "empty-slot"}`}
@@ -629,8 +648,10 @@ function App() {
             <div className="shift-list">
               {servicePeriodsForDate(selectedDate).map((period) => (
                 <div key={period} className="detail-lane">
-                  <h3>{period}</h3>
-                  {selectedShifts.filter((shift) => shift.period === period).map((shift) => (
+                  <button className="detail-lane-title" onClick={() => togglePeriod(period)}>
+                    <span>{isPeriodCollapsed(period) ? "▸" : "▾"}</span> {period}
+                  </button>
+                  {!isPeriodCollapsed(period) && selectedShifts.filter((shift) => shift.period === period).map((shift) => (
                     <article
                       key={shift.id}
                       className={`shift-row ${shift.status} ${roleClass(shift.role)} ${shift.employeeId ? "filled" : "empty-slot"}`}

@@ -188,6 +188,22 @@ button.secondary {
   padding: 16px;
 }
 
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.panel-heading h2 {
+  margin-bottom: 0;
+}
+
+.panel-heading select {
+  min-width: 120px;
+}
+
 .shift-list, .employee-list {
   display: flex;
   flex-direction: column;

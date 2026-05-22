@@ -141,7 +141,7 @@ function coverageForDate(shifts: Shift[], date: string) {
   });
 }
 
-function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], selectedDate: string) {
+function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], selectedDate: string, employeeRoleFilter = "All") {
   const openShifts = shifts.filter((shift) => !shift.employeeId || shift.status === "open");
   const warnings = shifts.filter((shift) => shift.status === "warning" || shift.note);
   return {
@@ -150,6 +150,7 @@ function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], select
     proposalId: "proposal_demo_123",
     dateRange: [days[0].date, days.at(-1)!.date],
     selectedDate,
+    employeeRoleFilter,
     visiblePanels: ["calendar", "employees", "assistant"],
     domain: {
       employees,
@@ -192,6 +193,7 @@ function App() {
   const [agentInfo, setAgentInfo] = useState<AgentInfo | null>(null);
   const [shifts, setShifts] = useState<Shift[]>(initialShifts);
   const [selectedDate, setSelectedDate] = useState(days[0].date);
+  const [employeeRoleFilter, setEmployeeRoleFilter] = useState("All");
   const [activity, setActivity] = useState<string[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const assistantIdRef = useRef<string | null>(null);
@@ -211,7 +213,7 @@ function App() {
 
     ws.onopen = () => {
       setStatus("Starting pi session…");
-      ws.send(JSON.stringify({ type: "context", context: buildSchedulingContext(messages, shifts, selectedDate) }));
+      ws.send(JSON.stringify({ type: "context", context: buildSchedulingContext(messages, shifts, selectedDate, employeeRoleFilter) }));
     };
     ws.onclose = () => {
       setConnected(false);
@@ -252,9 +254,9 @@ function App() {
 
   useEffect(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "context", context: buildSchedulingContext(messages, shifts, selectedDate) }));
+      wsRef.current.send(JSON.stringify({ type: "context", context: buildSchedulingContext(messages, shifts, selectedDate, employeeRoleFilter) }));
     }
-  }, [messages, shifts, selectedDate]);
+  }, [messages, shifts, selectedDate, employeeRoleFilter]);
 
   function appendMessage(message: ChatMessage) {
     setMessages((current) => [...current, message]);
@@ -359,7 +361,7 @@ function App() {
     if (!text || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     const nextMessages = [...messages, { id: crypto.randomUUID(), role: "user" as const, text }];
     setMessages(nextMessages);
-    wsRef.current.send(JSON.stringify({ type: "prompt", text, context: buildSchedulingContext(nextMessages, shifts, selectedDate) }));
+    wsRef.current.send(JSON.stringify({ type: "prompt", text, context: buildSchedulingContext(nextMessages, shifts, selectedDate, employeeRoleFilter) }));
     setInput("");
   }
 
@@ -455,6 +457,8 @@ function App() {
   }
 
   const selectedShifts = shifts.filter((shift) => shift.date === selectedDate).sort((a, b) => a.start.localeCompare(b.start));
+  const employeeRoles = ["All", ...Array.from(new Set(employees.map((employee) => employee.role))).sort()];
+  const filteredEmployees = employeeRoleFilter === "All" ? employees : employees.filter((employee) => employee.role === employeeRoleFilter);
   const openCount = shifts.filter((shift) => !shift.employeeId || shift.status === "open").length;
   const warningCount = shifts.filter((shift) => shift.status === "warning" || shift.note).length;
 
@@ -571,9 +575,14 @@ function App() {
           </section>
 
           <section className="panel">
-            <h2>Employees</h2>
+            <div className="panel-heading">
+              <h2>Employees</h2>
+              <select value={employeeRoleFilter} onChange={(event) => setEmployeeRoleFilter(event.target.value)}>
+                {employeeRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+              </select>
+            </div>
             <div className="employee-list">
-              {employees.map((employee) => (
+              {filteredEmployees.map((employee) => (
                 <article
                   key={employee.id}
                   className="employee-card"

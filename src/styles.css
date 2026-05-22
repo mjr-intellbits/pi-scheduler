@@ -347,9 +347,14 @@ button.small {
 .panel-heading {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.panel-heading p {
+  margin-top: 4px;
+  font-size: 14px;
 }
 
 .panel-heading h2 {
@@ -438,33 +443,70 @@ select, textarea, input {
 
 .employees-page {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .employee-form {
   display: grid;
-  grid-template-columns: 1.2fr .8fr 1fr 1fr .8fr auto;
+  grid-template-columns: minmax(180px, 1.2fr) 130px minmax(180px, 1fr) minmax(190px, 1fr) 130px auto;
   gap: 10px;
-  padding: 12px;
+  align-items: center;
+  padding: 14px;
   border: 1px solid #30363d;
-  border-radius: 14px;
-  background: #0d1117;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #0f141b 0%, #0d1117 100%);
+}
+
+.employee-form input,
+.employee-form select {
+  height: 42px;
+  font-size: 14px;
+}
+
+.employee-form button {
+  height: 42px;
+  white-space: nowrap;
 }
 
 .employee-admin-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
 }
 
 .employee-admin-card {
-  gap: 8px;
+  gap: 10px;
+  min-height: 0;
+  border-color: #30363d;
+  border-left: 5px solid var(--role, #58a6ff);
+  background: #0d1117;
+}
+
+.employee-admin-card:hover {
+  background: #161b22;
+}
+
+.employee-admin-card > strong {
+  font-size: 16px;
+}
+
+.employee-admin-card > span,
+.employee-admin-card > small {
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .employee-admin-controls {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
+  align-items: center;
+}
+
+.employee-admin-controls select,
+.employee-admin-controls button {
+  height: 36px;
+  font-size: 13px;
 }
 
 .context-menu {

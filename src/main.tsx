@@ -586,9 +586,14 @@ function App() {
             <div className="brand-mark">π</div>
             <div>
               <h1>Schedule Proposal</h1>
-              <p>Demo location · Week of Jun 1, 2026 · signed in as {userName}</p>
+              <p>Demo location · Week of Jun 1, 2026</p>
             </div>
           </div>
+          <nav className="nav-links" aria-label="Schedule views">
+            <button className="active">Schedule</button>
+            <button>Employees</button>
+            <button>Reports</button>
+          </nav>
           <div className="nav-stats">
             <span>{shifts.length} shifts</span>
             <span>{openCount} open</span>
@@ -597,6 +602,14 @@ function App() {
           <div className="quick-actions">
             <button onClick={() => sendPrompt("Analyze this schedule and tell me the biggest optimization opportunities. Do not apply changes yet.")} disabled={!connected}>Analyze</button>
             <button onClick={() => sendPrompt("Please fix the most obvious open shift or high-risk issue in the schedule UI, then explain what you changed.")} disabled={!connected}>Ask assistant to fix</button>
+          </div>
+          <div className="user-menu">
+            <div className="avatar">{userName.slice(0, 1).toUpperCase()}</div>
+            <div>
+              <strong>{userName}</strong>
+              <span>{connected ? "Connected" : "Offline"}</span>
+            </div>
+            <button className="secondary small" onClick={logout}>Switch</button>
           </div>
         </header>
 
@@ -730,12 +743,8 @@ function App() {
           <div>
             <h1>Assistant</h1>
             <p>{status}</p>
-            {agentInfo && <small>{agentInfo.tools?.join(", ")}</small>}
           </div>
-          <div className="assistant-actions">
-            <button onClick={abort} disabled={!connected}>Abort</button>
-            <button className="secondary" onClick={logout}>Switch user</button>
-          </div>
+          <button className="secondary small" onClick={abort} disabled={!connected}>Abort</button>
         </header>
 
         <section className="messages">

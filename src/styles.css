@@ -34,9 +34,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   margin-bottom: 18px;
 }
 
-h1, h2, p { margin: 0; }
+h1, h2, h3, p { margin: 0; }
 h1 { font-size: 22px; }
 h2 { font-size: 16px; margin-bottom: 12px; }
+h3 { font-size: 13px; color: #8b949e; margin-bottom: 8px; }
 p, small { color: #8b949e; }
 
 .quick-actions, .assistant-actions {
@@ -132,35 +133,24 @@ button.small {
   font-size: 11px;
 }
 
-.coverage-lanes {
+.role-manager { --role: #a371f7; --role-soft: #a371f724; --role-border: #a371f788; }
+.role-cook { --role: #f78166; --role-soft: #f7816624; --role-border: #f7816688; }
+.role-host { --role: #56d364; --role-soft: #56d36424; --role-border: #56d36488; }
+.role-server { --role: #58a6ff; --role-soft: #58a6ff24; --role-border: #58a6ff88; }
+
+.period-lane {
   display: grid;
-  gap: 4px;
-  margin: 2px 0 4px;
+  gap: 5px;
+  border-top: 1px solid #30363d;
+  padding-top: 7px;
 }
 
-.coverage-lane {
-  border: 1px dashed #30363d;
-  border-radius: 7px;
-  padding: 4px 6px;
+.period-title {
   color: #8b949e;
   font-size: 11px;
-}
-
-.coverage-lane span {
-  color: #58a6ff;
-  font-weight: 700;
-}
-
-.coverage-lane.covered {
-  color: #7ee787;
-  border-color: #23863688;
-  background: #23863618;
-}
-
-.coverage-lane.missing {
-  color: #f0b72f;
-  border-color: #d2992288;
-  background: #d2992218;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .shift-chip {
@@ -169,14 +159,34 @@ button.small {
   padding: 7px 8px;
   font-size: 12px;
   line-height: 1.3;
-  background: #1f6feb22;
-  border: 1px solid #1f6feb66;
+  background: var(--role-soft, #1f6feb22);
+  border: 1px dashed var(--role-border, #1f6feb66);
+  color: #e6edf3;
 }
 
-.shift-chip.open, .shift-row.open { border-color: #d29922aa; background: #d2992222; }
-.shift-chip.warning, .shift-row.warning { border-color: #f85149aa; background: #f8514922; }
+.shift-chip.filled {
+  background: color-mix(in srgb, var(--role, #58a6ff) 62%, #0d1117);
+  border-style: solid;
+  border-color: var(--role, #58a6ff);
+}
+
+.shift-chip.empty-slot {
+  color: color-mix(in srgb, var(--role, #58a6ff) 72%, white);
+}
+
+.shift-chip.warning, .shift-row.warning { box-shadow: 0 0 0 1px #f85149aa inset; }
+.shift-chip b, .shift-chip small {
+  display: block;
+}
+
+.shift-chip small {
+  margin-top: 2px;
+  color: inherit;
+  opacity: .86;
+}
+
 .shift-chip::after {
-  content: "Drop employee · drag shift";
+  content: "Drop matching employee";
   display: block;
   margin-top: 4px;
   color: #8b949e;
@@ -220,15 +230,28 @@ button.small {
   gap: 10px;
 }
 
+.detail-lane {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 12px;
+  background: #0d1117;
+}
+
 .shift-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 220px;
   gap: 12px;
   align-items: center;
-  border: 1px solid #30363d;
+  border: 1px dashed var(--role-border, #30363d);
   border-radius: 12px;
   padding: 12px;
-  background: #0d1117;
+  background: var(--role-soft, #0d1117);
+}
+
+.shift-row.filled {
+  border-style: solid;
 }
 
 .shift-row div, .employee-card {
@@ -255,22 +278,45 @@ select, textarea {
 }
 
 .employee-card {
-  border: 1px solid #30363d;
+  border: 1px solid var(--role, #30363d);
   border-radius: 12px;
   padding: 12px;
-  background: #0d1117;
+  background: color-mix(in srgb, var(--role, #58a6ff) 45%, #0d1117);
   transition: transform .12s ease, border-color .12s ease, background .12s ease;
 }
 
 .employee-card:hover {
   transform: translateY(-1px);
-  border-color: #58a6ff99;
-  background: #1f6feb18;
+  border-color: color-mix(in srgb, var(--role, #58a6ff) 70%, white);
+  background: color-mix(in srgb, var(--role, #58a6ff) 60%, #0d1117);
 }
 
 .employee-card small::after {
   content: " · drag to assign";
   color: #58a6ff;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 220px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  background: #161b22;
+  box-shadow: 0 12px 30px #0008;
+}
+
+.context-menu span {
+  color: #8b949e;
+  font-size: 12px;
+}
+
+.context-menu button {
+  text-align: left;
+  background: #21262d;
 }
 
 .activity {

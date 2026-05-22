@@ -49,6 +49,12 @@ type AgentInfo = {
   tools?: string[];
 };
 
+type ContextMenuState = {
+  x: number;
+  y: number;
+  shiftId: string;
+};
+
 type ServerMessage =
   | ({ type: "ready" } & AgentInfo)
   | { type: "history"; messages: ChatMessage[] }
@@ -134,6 +140,10 @@ function normalizeUserName(name: string) {
 
 function employeeName(id?: string) {
   return employees.find((employee) => employee.id === id)?.name ?? "Open";
+}
+
+function roleClass(role: string) {
+  return `role-${role.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
 function dayName(date: string) {
@@ -235,6 +245,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(days[0].date);
   const [employeeRoleFilter, setEmployeeRoleFilter] = useState("All");
   const [activity, setActivity] = useState<string[]>([]);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const assistantIdRef = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -417,6 +428,17 @@ function App() {
     wsRef.current?.send(JSON.stringify({ type: "abort" }));
   }
 
+  function openShiftMenu(event: React.MouseEvent, shift: Shift) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!shift.employeeId) return;
+    setContextMenu({ x: event.clientX, y: event.clientY, shiftId: shift.id });
+  }
+
+  function closeContextMenu() {
+    setContextMenu(null);
+  }
+
   function startDraggingEmployee(event: React.DragEvent, employee: Employee) {
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData("application/x-employee-id", employee.id);
@@ -522,6 +544,7 @@ function App() {
   }
 
   const selectedShifts = shifts.filter((shift) => shift.date === selectedDate).sort((a, b) => `${a.period}-${a.start}-${a.role}`.localeCompare(`${b.period}-${b.start}-${b.role}`));
+  const contextShift = contextMenu ? shifts.find((shift) => shift.id === contextMenu.shiftId) : undefined;
   const employeeRoles = ["All", ...Array.from(new Set(employees.map((employee) => employee.role))).sort()];
   const filteredEmployees = employeeRoleFilter === "All" ? employees : employees.filter((employee) => employee.role === employeeRoleFilter);
   const openCount = shifts.filter((shift) => !shift.employeeId || shift.status === "open").length;
@@ -547,7 +570,7 @@ function App() {
   }
 
   return (
-    <main className="scheduler-app">
+    <main className="scheduler-app" onClick={closeContextMenu}>
       <section className="schedule-pane">
         <header className="schedule-header">
           <div>
@@ -575,29 +598,24 @@ function App() {
                   <strong>{day.label}</strong>
                   {isBusyDay(day.date) && <span>Busy · 2 servers</span>}
                 </div>
-                <div className="coverage-lanes">
-                  {coverageForDate(shifts, day.date).map((coverage) => (
-                    <div
-                      key={coverage.key}
-                      className={`coverage-lane ${coverage.covered ? "covered" : "missing"}`}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => dropEmployeeOnSlot(event, day.date, coverage.period, coverage.role)}
-                    >
-                      <span>{coverage.period}</span> {coverage.role}: {coverage.covered ? employeeName(coverage.shift?.employeeId) : "needed"}
-                    </div>
-                  ))}
-                </div>
-                {dayShifts.map((shift) => (
-                  <div
-                    key={shift.id}
-                    className={`shift-chip ${shift.status}`}
-                    draggable
-                    onDragStart={(event) => startDraggingShift(event, shift)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => dropEmployeeOnShift(event, shift.id)}
-                    title="Drag this shift to another day, or drop an employee here"
-                  >
-                    {shift.period} {shift.start} {shift.role} · {employeeName(shift.employeeId)}
+                {servicePeriodsForDate(day.date).map((period) => (
+                  <div key={period} className="period-lane">
+                    <div className="period-title">{period}</div>
+                    {dayShifts.filter((shift) => shift.period === period).map((shift) => (
+                      <div
+                        key={shift.id}
+                        className={`shift-chip ${shift.status} ${roleClass(shift.role)} ${shift.employeeId ? "filled" : "empty-slot"}`}
+                        draggable
+                        onDragStart={(event) => startDraggingShift(event, shift)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => dropEmployeeOnShift(event, shift.id)}
+                        onContextMenu={(event) => openShiftMenu(event, shift)}
+                        title="Drag this shift to another day, drop an employee, or right-click assigned people"
+                      >
+                        <b>{shift.start} · {shift.role}</b>
+                        <small>{employeeName(shift.employeeId)}</small>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -609,40 +627,46 @@ function App() {
           <section className="panel">
             <h2>{days.find((day) => day.date === selectedDate)?.label} shifts</h2>
             <div className="shift-list">
-              {selectedShifts.map((shift) => (
-                <article
-                  key={shift.id}
-                  className={`shift-row ${shift.status}`}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => dropEmployeeOnShift(event, shift.id)}
-                  draggable
-                  onDragStart={(event) => startDraggingShift(event, shift)}
-                >
-                  <div>
-                    <strong>{shift.period} · {shift.start}–{shift.end}</strong>
-                    <span>{shift.role}</span>
-                    {shift.note && <em>{shift.note}</em>}
-                  </div>
-                  <div className="shift-controls">
-                    <select
-                    value={shift.employeeId ?? ""}
-                    onChange={(event) => {
-                      const employeeId = event.target.value || undefined;
-                      if (employeeId) {
-                        assignEmployeeToShift(shift.id, employeeId, "Manual select");
-                      } else {
-                        setShifts((current) => current.map((s) => s.id === shift.id ? { ...s, employeeId: undefined, status: "open", note: undefined } : s));
-                      }
-                    }}
-                  >
-                    <option value="">Open shift</option>
-                    {employees.filter((employee) => employee.role === shift.role || employee.skills.includes(shift.role.toLowerCase())).map((employee) => (
-                      <option key={employee.id} value={employee.id}>{employee.name}</option>
-                    ))}
-                    </select>
-                    <button className="secondary small" onClick={() => unassignShift(shift.id)} disabled={!shift.employeeId}>Clear</button>
-                  </div>
-                </article>
+              {servicePeriodsForDate(selectedDate).map((period) => (
+                <div key={period} className="detail-lane">
+                  <h3>{period}</h3>
+                  {selectedShifts.filter((shift) => shift.period === period).map((shift) => (
+                    <article
+                      key={shift.id}
+                      className={`shift-row ${shift.status} ${roleClass(shift.role)} ${shift.employeeId ? "filled" : "empty-slot"}`}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => dropEmployeeOnShift(event, shift.id)}
+                      draggable
+                      onDragStart={(event) => startDraggingShift(event, shift)}
+                      onContextMenu={(event) => openShiftMenu(event, shift)}
+                    >
+                      <div>
+                        <strong>{shift.start}–{shift.end}</strong>
+                        <span>{shift.role}</span>
+                        {shift.note && <em>{shift.note}</em>}
+                      </div>
+                      <div className="shift-controls">
+                        <select
+                          value={shift.employeeId ?? ""}
+                          onChange={(event) => {
+                            const employeeId = event.target.value || undefined;
+                            if (employeeId) {
+                              assignEmployeeToShift(shift.id, employeeId, "Manual select");
+                            } else {
+                              unassignShift(shift.id);
+                            }
+                          }}
+                        >
+                          <option value="">Open shift</option>
+                          {employees.filter((employee) => employee.role === shift.role || employee.skills.includes(shift.role.toLowerCase())).map((employee) => (
+                            <option key={employee.id} value={employee.id}>{employee.name}</option>
+                          ))}
+                        </select>
+                        <button className="secondary small" onClick={() => unassignShift(shift.id)} disabled={!shift.employeeId}>Clear</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               ))}
             </div>
           </section>
@@ -658,7 +682,7 @@ function App() {
               {filteredEmployees.map((employee) => (
                 <article
                   key={employee.id}
-                  className="employee-card"
+                  className={`employee-card ${roleClass(employee.role)}`}
                   draggable
                   onDragStart={(event) => startDraggingEmployee(event, employee)}
                   title="Drag onto a shift to assign"
@@ -706,6 +730,19 @@ function App() {
           ))}
           <div ref={bottomRef} />
         </section>
+
+        {contextMenu && contextShift && (
+          <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={(event) => event.stopPropagation()}>
+            <strong>{employeeName(contextShift.employeeId)}</strong>
+            <span>{contextShift.period} {contextShift.role} · {dayName(contextShift.date)}</span>
+            <button onClick={() => { unassignShift(contextShift.id, "Context menu"); closeContextMenu(); }}>Remove from shift</button>
+            <button onClick={() => { setEmployeeRoleFilter(contextShift.role); closeContextMenu(); }}>Show {contextShift.role}s</button>
+            <button onClick={() => {
+              sendPrompt(`Find a better replacement for ${employeeName(contextShift.employeeId)} on ${dayName(contextShift.date)} ${contextShift.period} ${contextShift.role}. Do not apply changes yet.`);
+              closeContextMenu();
+            }}>Ask assistant for replacement</button>
+          </div>
+        )}
 
         <footer>
           <textarea

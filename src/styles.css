@@ -22,12 +22,14 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
 .scheduler-app {
   min-height: 0;
+  min-width: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 430px;
   background: #0d1117;
 }
 
 .schedule-pane {
+  min-width: 0;
   padding: 24px;
   overflow: auto;
   border-right: 1px solid #30363d;
@@ -338,6 +340,7 @@ button.small {
 }
 
 .panel {
+  min-width: 0;
   border: 1px solid #30363d;
   background: #161b22;
   border-radius: 14px;
@@ -350,6 +353,7 @@ button.small {
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .panel-heading p {
@@ -362,7 +366,8 @@ button.small {
 }
 
 .panel-heading select {
-  min-width: 120px;
+  width: 160px;
+  max-width: 100%;
 }
 
 .shift-list, .employee-list {
@@ -448,7 +453,7 @@ select, textarea, input {
 
 .employee-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) 130px minmax(180px, 1fr) minmax(190px, 1fr) 130px auto;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   align-items: center;
   padding: 14px;
@@ -465,6 +470,7 @@ select, textarea, input {
 
 .employee-form button {
   height: 42px;
+  min-width: 0;
   white-space: nowrap;
 }
 

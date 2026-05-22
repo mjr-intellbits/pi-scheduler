@@ -8,7 +8,8 @@
     "dev:client": "vite",
     "dev:server": "bun --watch server/index.ts",
     "build": "tsc -b && vite build",
-    "start": "NODE_ENV=production bun dist-server/index.js"
+    "start": "NODE_ENV=production bun dist-server/index.js",
+    "deploy:pages": "bunx wrangler pages deploy dist --project-name pi-web"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "latest",

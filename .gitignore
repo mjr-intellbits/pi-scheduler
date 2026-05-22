@@ -1,0 +1,9 @@
+node_modules/
+dist/
+dist-server/
+.pi-web/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+.wrangler/

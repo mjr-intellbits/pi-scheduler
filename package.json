@@ -1,0 +1,32 @@
+{
+  "name": "pi-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"bun run dev:server\" \"bun run dev:client\"",
+    "dev:client": "vite",
+    "dev:server": "bun --watch server/index.ts",
+    "build": "tsc -b && vite build",
+    "start": "NODE_ENV=production bun dist-server/index.js"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "latest",
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "typescript": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "typebox": "latest",
+    "express": "latest",
+    "ws": "latest"
+  },
+  "devDependencies": {
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/ws": "latest",
+    "concurrently": "latest"
+  }
+}

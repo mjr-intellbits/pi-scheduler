@@ -60,6 +60,11 @@ button.secondary {
   background: #21262d;
 }
 
+button.small {
+  padding: 7px 9px;
+  font-size: 12px;
+}
+
 .login-screen {
   min-height: 100vh;
   display: grid;
@@ -141,6 +146,11 @@ button.secondary {
   font-size: 11px;
 }
 
+.coverage-lane span {
+  color: #58a6ff;
+  font-weight: 700;
+}
+
 .coverage-lane.covered {
   color: #7ee787;
   border-color: #23863688;
@@ -212,7 +222,7 @@ button.secondary {
 
 .shift-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px;
+  grid-template-columns: minmax(0, 1fr) 220px;
   gap: 12px;
   align-items: center;
   border: 1px solid #30363d;
@@ -229,6 +239,12 @@ button.secondary {
 
 .shift-row span, .employee-card span { color: #c9d1d9; }
 .shift-row em { color: #f0b72f; font-style: normal; font-size: 12px; }
+
+.shift-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
 
 select, textarea {
   border: 1px solid #30363d;

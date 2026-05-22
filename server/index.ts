@@ -108,6 +108,7 @@ wss.on("connection", async (ws, req) => {
           employeeId: Type.Optional(Type.String()),
           date: Type.Optional(Type.String({ description: "YYYY-MM-DD" })),
           role: Type.Optional(Type.String()),
+          period: Type.Optional(Type.String({ description: "Brunch, Lunch, or Dinner" })),
           start: Type.Optional(Type.String({ description: "HH:mm" })),
           end: Type.Optional(Type.String({ description: "HH:mm" })),
           status: Type.Optional(Type.String()),

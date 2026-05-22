@@ -20,6 +20,7 @@ type Employee = {
 type Shift = {
   id: string;
   date: string;
+  period: "Brunch" | "Lunch" | "Dinner";
   start: string;
   end: string;
   role: string;
@@ -34,6 +35,7 @@ type SchedulingChange = {
   employeeId?: string;
   date?: string;
   role?: string;
+  period?: Shift["period"];
   start?: string;
   end?: string;
   status?: string;
@@ -63,21 +65,52 @@ const employees: Employee[] = [
   { id: "emp_dia", name: "Dia Patel", role: "Cook", skills: ["prep", "inventory"], availability: ["Thu", "Fri", "Sat", "Sun"], attendanceRisk: "high" },
   { id: "emp_eli", name: "Eli Moore", role: "Server", skills: ["floor", "training"], availability: ["Mon", "Tue", "Fri", "Sat"], attendanceRisk: "medium" },
   { id: "emp_fay", name: "Fay Okafor", role: "Host", skills: ["front", "phones"], availability: ["Wed", "Thu", "Fri", "Sat", "Sun"], attendanceRisk: "low" },
+  { id: "emp_gus", name: "Gus Novak", role: "Manager", skills: ["opening", "cash"], availability: ["Sat", "Sun", "Mon", "Tue"], attendanceRisk: "low" },
+  { id: "emp_hana", name: "Hana Kim", role: "Cook", skills: ["grill", "brunch"], availability: ["Sat", "Sun", "Mon", "Tue"], attendanceRisk: "low" },
+  { id: "emp_ivy", name: "Ivy Brooks", role: "Server", skills: ["floor", "brunch"], availability: ["Thu", "Fri", "Sat", "Sun"], attendanceRisk: "low" },
+  { id: "emp_jules", name: "Jules Martin", role: "Host", skills: ["front", "events"], availability: ["Mon", "Tue", "Wed", "Thu"], attendanceRisk: "medium" },
+  { id: "emp_kai", name: "Kai Smith", role: "Server", skills: ["bar", "floor"], availability: ["Wed", "Thu", "Fri", "Sat", "Sun"], attendanceRisk: "low" },
+  { id: "emp_lena", name: "Lena Torres", role: "Cook", skills: ["prep", "line"], availability: ["Mon", "Tue", "Wed", "Thu", "Fri"], attendanceRisk: "low" },
+  { id: "emp_maya", name: "Maya Singh", role: "Manager", skills: ["closing", "training"], availability: ["Wed", "Thu", "Fri", "Sat", "Sun"], attendanceRisk: "medium" },
+  { id: "emp_noah", name: "Noah Green", role: "Host", skills: ["phones", "front"], availability: ["Fri", "Sat", "Sun"], attendanceRisk: "low" },
+  { id: "emp_omar", name: "Omar Reyes", role: "Server", skills: ["floor", "large-party"], availability: ["Mon", "Tue", "Wed", "Fri", "Sat"], attendanceRisk: "medium" },
+  { id: "emp_pia", name: "Pia Rossi", role: "Server", skills: ["bar", "closing"], availability: ["Thu", "Fri", "Sat", "Sun"], attendanceRisk: "low" },
 ];
 
-const initialShifts: Shift[] = [
-  { id: "s1", date: "2026-06-01", start: "08:00", end: "16:00", role: "Manager", employeeId: "emp_ana", status: "assigned" },
-  { id: "s2", date: "2026-06-01", start: "10:00", end: "18:00", role: "Cook", employeeId: "emp_ben", status: "assigned" },
-  { id: "s3", date: "2026-06-01", start: "16:00", end: "22:00", role: "Server", status: "open", note: "Dinner coverage gap" },
-  { id: "s4", date: "2026-06-02", start: "09:00", end: "15:00", role: "Host", status: "open" },
-  { id: "s5", date: "2026-06-02", start: "15:00", end: "23:00", role: "Server", employeeId: "emp_chen", status: "assigned" },
-  { id: "s6", date: "2026-06-03", start: "07:00", end: "15:00", role: "Cook", employeeId: "emp_dia", status: "warning", note: "High absence risk" },
-  { id: "s7", date: "2026-06-04", start: "12:00", end: "20:00", role: "Server", employeeId: "emp_eli", status: "assigned" },
-  { id: "s8", date: "2026-06-05", start: "08:00", end: "16:00", role: "Host", employeeId: "emp_fay", status: "assigned" },
-  { id: "s9", date: "2026-06-06", start: "16:00", end: "23:00", role: "Cook", employeeId: "emp_dia", status: "warning", note: "Saturday demand spike" },
-  { id: "s10", date: "2026-06-06", start: "17:00", end: "23:00", role: "Server", status: "open", note: "Need experienced floor coverage" },
-  { id: "s11", date: "2026-06-07", start: "10:00", end: "18:00", role: "Manager", status: "open" },
-];
+function servicePeriodsForDate(date: string): Shift["period"][] {
+  return isWeekend(date) ? ["Brunch", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
+}
+
+function generateInitialShifts(): Shift[] {
+  const assignments: Record<string, string> = {
+    "2026-06-01-Lunch-Manager-0": "emp_ana",
+    "2026-06-01-Lunch-Cook-0": "emp_ben",
+    "2026-06-02-Dinner-Server-0": "emp_chen",
+    "2026-06-03-Lunch-Cook-0": "emp_dia",
+    "2026-06-04-Dinner-Server-0": "emp_eli",
+    "2026-06-05-Lunch-Host-0": "emp_fay",
+    "2026-06-06-Dinner-Cook-0": "emp_dia",
+  };
+
+  return days.flatMap((day) => servicePeriodsForDate(day.date).flatMap((period) =>
+    requiredRolesForDate(day.date).map((role, index) => {
+      const { start, end } = roleStartEnd(role, period);
+      const id = `${day.date}-${period}-${role}-${index}`.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+      const employeeId = assignments[`${day.date}-${period}-${role}-${index}`];
+      return {
+        id,
+        date: day.date,
+        period,
+        start,
+        end,
+        role,
+        employeeId,
+        status: employeeId ? (employeeId === "emp_dia" ? "warning" : "assigned") : "open",
+        note: employeeId === "emp_dia" ? "High absence risk" : undefined,
+      } satisfies Shift;
+    })
+  ));
+}
 
 const days = [
   { date: "2026-06-01", label: "Mon 1" },
@@ -88,6 +121,8 @@ const days = [
   { date: "2026-06-06", label: "Sat 6" },
   { date: "2026-06-07", label: "Sun 7" },
 ];
+
+const initialShifts: Shift[] = generateInitialShifts();
 
 function getStoredUserName() {
   return localStorage.getItem(USER_NAME_KEY) ?? "";
@@ -117,28 +152,33 @@ function assignmentWarning(employee: Employee, shift: Shift) {
   return undefined;
 }
 
+function isWeekend(date: string) {
+  return ["Sat", "Sun"].includes(dayName(date));
+}
+
 function isBusyDay(date: string) {
-  return date === "2026-06-06";
+  return isWeekend(date);
 }
 
 function requiredRolesForDate(date: string) {
   return ["Manager", "Cook", "Host", "Server", ...(isBusyDay(date) ? ["Server"] : [])];
 }
 
-function roleStartEnd(role: string) {
-  if (role === "Manager") return { start: "08:00", end: "16:00" };
-  if (role === "Cook") return { start: "10:00", end: "18:00" };
-  if (role === "Host") return { start: "09:00", end: "15:00" };
-  return { start: "16:00", end: "22:00" };
+function roleStartEnd(role: string, period: Shift["period"] = "Lunch") {
+  if (period === "Brunch") return { start: "09:00", end: "13:00" };
+  if (period === "Lunch") return { start: role === "Manager" ? "10:00" : "11:00", end: "15:00" };
+  return { start: role === "Manager" ? "15:00" : "16:00", end: "22:00" };
 }
 
 function coverageForDate(shifts: Shift[], date: string) {
   const dayShifts = shifts.filter((shift) => shift.date === date);
-  return requiredRolesForDate(date).map((role, index) => {
-    const matching = dayShifts.filter((shift) => shift.role === role);
-    const shift = matching[index] ?? matching.find((item) => !item.employeeId) ?? matching[0];
-    return { key: `${role}-${index}`, role, shift, covered: Boolean(shift?.employeeId) };
-  });
+  return servicePeriodsForDate(date).flatMap((period) =>
+    requiredRolesForDate(date).map((role, index) => {
+      const matching = dayShifts.filter((shift) => shift.period === period && shift.role === role);
+      const shift = matching[index] ?? matching.find((item) => !item.employeeId) ?? matching[0];
+      return { key: `${period}-${role}-${index}`, period, role, shift, covered: Boolean(shift?.employeeId) };
+    })
+  );
 }
 
 function buildSchedulingContext(messages: ChatMessage[], shifts: Shift[], selectedDate: string, employeeRoleFilter = "All") {
@@ -289,6 +329,7 @@ function App() {
           next = next.map((shift) => shift.id === change.shiftId ? {
             ...shift,
             date: change.date ?? shift.date,
+            period: change.period ?? shift.period,
             start: change.start ?? shift.start,
             end: change.end ?? shift.end,
             role: change.role ?? shift.role,
@@ -299,6 +340,7 @@ function App() {
           next = [...next, {
             id: `s_${crypto.randomUUID().slice(0, 8)}`,
             date: change.date,
+            period: change.period ?? "Lunch",
             start: change.start,
             end: change.end,
             role: change.role,
@@ -400,6 +442,11 @@ function App() {
     const employee = employees.find((item) => item.id === employeeId);
     const shift = shifts.find((item) => item.id === shiftId);
     if (!employee || !shift) return;
+    const duplicate = shifts.find((item) => item.id !== shiftId && item.date === shift.date && item.period === shift.period && item.employeeId === employeeId);
+    if (duplicate) {
+      setActivity((current) => [`Blocked: ${employee.name} is already assigned during ${shift.period} on ${dayName(shift.date)}`, ...current].slice(0, 6));
+      return;
+    }
     const warning = assignmentWarning(employee, shift);
     setShifts((current) => current.map((item) => item.id === shiftId ? {
       ...item,
@@ -407,38 +454,49 @@ function App() {
       status: warning ? "warning" : "assigned",
       note: warning,
     } : item));
-    setActivity((current) => [`${source}: assigned ${employee.name} to ${shift.role} on ${dayName(shift.date)} ${shift.start}–${shift.end}${warning ? ` (${warning})` : ""}`, ...current].slice(0, 6));
+    setActivity((current) => [`${source}: assigned ${employee.name} to ${shift.period} ${shift.role} on ${dayName(shift.date)} ${shift.start}–${shift.end}${warning ? ` (${warning})` : ""}`, ...current].slice(0, 6));
+  }
+
+  function unassignShift(shiftId: string, source = "Manual") {
+    const shift = shifts.find((item) => item.id === shiftId);
+    if (!shift) return;
+    setShifts((current) => current.map((item) => item.id === shiftId ? { ...item, employeeId: undefined, status: "open", note: undefined } : item));
+    setActivity((current) => [`${source}: cleared ${shift.period} ${shift.role} on ${dayName(shift.date)}`, ...current].slice(0, 6));
+  }
+
+  function assignEmployeeToSlot(date: string, period: Shift["period"], role: string, employeeId: string) {
+    const slot = shifts.find((shift) => shift.date === date && shift.period === period && shift.role === role && !shift.employeeId)
+      ?? shifts.find((shift) => shift.date === date && shift.period === period && shift.role === role);
+    if (slot) assignEmployeeToShift(slot.id, employeeId);
   }
 
   function assignEmployeeToDate(date: string, employeeId: string) {
     const employee = employees.find((item) => item.id === employeeId);
     if (!employee) return;
-    const required = requiredRolesForDate(date);
-    const role = required.includes(employee.role) ? employee.role : employee.role;
-    const dayShifts = shifts.filter((shift) => shift.date === date && shift.role === role);
-    const openShift = dayShifts.find((shift) => !shift.employeeId);
+    const role = employee.role;
+    const openShift = shifts.find((shift) => shift.date === date && shift.role === role && !shift.employeeId);
     if (openShift) {
       assignEmployeeToShift(openShift.id, employeeId);
       return;
     }
-    const existingFilled = dayShifts.filter((shift) => shift.employeeId).length;
-    const requiredCount = required.filter((item) => item === role).length;
-    const { start, end } = roleStartEnd(role);
+    const period = servicePeriodsForDate(date)[0];
+    const { start, end } = roleStartEnd(role, period);
     const newShift: Shift = {
       id: `s_${crypto.randomUUID().slice(0, 8)}`,
       date,
+      period,
       start,
       end,
       role,
       employeeId,
-      status: existingFilled >= requiredCount ? "warning" : "assigned",
-      note: existingFilled >= requiredCount ? `Extra ${role} added beyond base staffing requirement` : undefined,
+      status: "warning",
+      note: `Extra ${role} added beyond base staffing requirement`,
     };
     const warning = assignmentWarning(employee, newShift);
     const finalShift = { ...newShift, status: warning ? "warning" as const : newShift.status, note: warning ?? newShift.note };
     setShifts((current) => [...current, finalShift]);
     setSelectedDate(date);
-    setActivity((current) => [`Manual drag/drop: added ${employee.name} as ${role} on ${dayName(date)}${finalShift.note ? ` (${finalShift.note})` : ""}`, ...current].slice(0, 6));
+    setActivity((current) => [`Manual drag/drop: added ${employee.name} as ${period} ${role} on ${dayName(date)}${finalShift.note ? ` (${finalShift.note})` : ""}`, ...current].slice(0, 6));
   }
 
   function dropOnDay(event: React.DragEvent, date: string) {
@@ -449,6 +507,13 @@ function App() {
     else if (employeeId) assignEmployeeToDate(date, employeeId);
   }
 
+  function dropEmployeeOnSlot(event: React.DragEvent, date: string, period: Shift["period"], role: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    const employeeId = event.dataTransfer.getData("application/x-employee-id");
+    if (employeeId) assignEmployeeToSlot(date, period, role, employeeId);
+  }
+
   function dropEmployeeOnShift(event: React.DragEvent, shiftId: string) {
     event.preventDefault();
     event.stopPropagation();
@@ -456,7 +521,7 @@ function App() {
     if (employeeId) assignEmployeeToShift(shiftId, employeeId);
   }
 
-  const selectedShifts = shifts.filter((shift) => shift.date === selectedDate).sort((a, b) => a.start.localeCompare(b.start));
+  const selectedShifts = shifts.filter((shift) => shift.date === selectedDate).sort((a, b) => `${a.period}-${a.start}-${a.role}`.localeCompare(`${b.period}-${b.start}-${b.role}`));
   const employeeRoles = ["All", ...Array.from(new Set(employees.map((employee) => employee.role))).sort()];
   const filteredEmployees = employeeRoleFilter === "All" ? employees : employees.filter((employee) => employee.role === employeeRoleFilter);
   const openCount = shifts.filter((shift) => !shift.employeeId || shift.status === "open").length;
@@ -512,8 +577,13 @@ function App() {
                 </div>
                 <div className="coverage-lanes">
                   {coverageForDate(shifts, day.date).map((coverage) => (
-                    <div key={coverage.key} className={`coverage-lane ${coverage.covered ? "covered" : "missing"}`}>
-                      {coverage.role}: {coverage.covered ? employeeName(coverage.shift?.employeeId) : "needed"}
+                    <div
+                      key={coverage.key}
+                      className={`coverage-lane ${coverage.covered ? "covered" : "missing"}`}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => dropEmployeeOnSlot(event, day.date, coverage.period, coverage.role)}
+                    >
+                      <span>{coverage.period}</span> {coverage.role}: {coverage.covered ? employeeName(coverage.shift?.employeeId) : "needed"}
                     </div>
                   ))}
                 </div>
@@ -527,7 +597,7 @@ function App() {
                     onDrop={(event) => dropEmployeeOnShift(event, shift.id)}
                     title="Drag this shift to another day, or drop an employee here"
                   >
-                    {shift.start} {shift.role} · {employeeName(shift.employeeId)}
+                    {shift.period} {shift.start} {shift.role} · {employeeName(shift.employeeId)}
                   </div>
                 ))}
               </div>
@@ -549,11 +619,12 @@ function App() {
                   onDragStart={(event) => startDraggingShift(event, shift)}
                 >
                   <div>
-                    <strong>{shift.start}–{shift.end}</strong>
+                    <strong>{shift.period} · {shift.start}–{shift.end}</strong>
                     <span>{shift.role}</span>
                     {shift.note && <em>{shift.note}</em>}
                   </div>
-                  <select
+                  <div className="shift-controls">
+                    <select
                     value={shift.employeeId ?? ""}
                     onChange={(event) => {
                       const employeeId = event.target.value || undefined;
@@ -568,7 +639,9 @@ function App() {
                     {employees.filter((employee) => employee.role === shift.role || employee.skills.includes(shift.role.toLowerCase())).map((employee) => (
                       <option key={employee.id} value={employee.id}>{employee.name}</option>
                     ))}
-                  </select>
+                    </select>
+                    <button className="secondary small" onClick={() => unassignShift(shift.id)} disabled={!shift.employeeId}>Clear</button>
+                  </div>
                 </article>
               ))}
             </div>

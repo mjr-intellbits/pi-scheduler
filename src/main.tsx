@@ -579,9 +579,8 @@ function App() {
   }
 
   return (
-    <main className="scheduler-app" onClick={closeContextMenu}>
-      <section className="schedule-pane">
-        <header className="schedule-nav">
+    <main className="app-shell" onClick={closeContextMenu}>
+      <header className="schedule-nav">
           <div className="brand-block">
             <div className="brand-mark">π</div>
             <div>
@@ -611,9 +610,11 @@ function App() {
             </div>
             <button className="secondary small" onClick={logout}>Switch</button>
           </div>
-        </header>
+      </header>
 
-        <div className="calendar-grid">
+      <div className="scheduler-app">
+        <section className="schedule-pane">
+          <div className="calendar-grid">
           {days.map((day) => {
             const dayShifts = shifts.filter((shift) => shift.date === day.date).sort((a, b) => a.start.localeCompare(b.start));
             return (
@@ -736,9 +737,9 @@ function App() {
             {activity.map((item, index) => <p key={index}>{item}</p>)}
           </section>
         )}
-      </section>
+        </section>
 
-      <aside className="assistant-pane">
+        <aside className="assistant-pane">
         <header>
           <div>
             <h1>Assistant</h1>
@@ -789,7 +790,8 @@ function App() {
           />
           <button onClick={() => sendPrompt()} disabled={!connected || !input.trim()}>Send</button>
         </footer>
-      </aside>
+        </aside>
+      </div>
     </main>
   );
 }
